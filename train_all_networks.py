@@ -3,7 +3,7 @@ import logging
 import torch
 from pythonbasictools import DeepLib, log_device_setup, logs_file_setup
 
-from applications.heidelberg.results_generation import get_training_params_space, train_all_params
+from results_generation import get_training_params_space, train_all_params
 from neurotorch import LayerType
 
 opt_params_space = {
