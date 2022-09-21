@@ -10,7 +10,7 @@ import pandas as pd
 import torch
 import tqdm
 
-from applications.heidelberg.dataset import get_dataloaders
+from dataset import get_dataloaders
 import neurotorch as nt
 from neurotorch import Dimension, DimensionProperty
 from neurotorch.callbacks import CheckpointManager, LoadCheckpointMode
@@ -103,6 +103,8 @@ def train_with_params(
 		show_training: bool = False,
 		force_overwrite: bool = False,
 		seed: int = 42,
+		nb_workers: int = 0,
+		pin_memory: bool = True,
 ):
 	torch.manual_seed(seed)
 	checkpoints_name = str(hash_params(params))
@@ -114,6 +116,8 @@ def train_with_params(
 	dataloaders = get_dataloaders(
 		batch_size=batch_size,
 		train_val_split_ratio=params.get("train_val_split_ratio", 0.95),
+		nb_workers=nb_workers,
+		pin_memory=pin_memory,
 	)
 	n_features = dataloaders["test"].dataset.n_units
 	n_hidden_neurons = params["n_hidden_neurons"]
@@ -144,8 +148,7 @@ def train_with_params(
 		name=f"heidelberg_network_{checkpoints_name}",
 		checkpoint_folder=checkpoint_folder,
 		foresight_time_steps=params.get("foresight_time_steps", 0),
-	)
-	network.build()
+	).build()
 	if verbose:
 		logging.info(f"\nNetwork:\n{network}")
 	checkpoint_manager = CheckpointManager(checkpoint_folder, metric="val_accuracy", minimise_metric=False)
@@ -160,7 +163,7 @@ def train_with_params(
 	trainer = ClassificationTrainer(
 		model=network,
 		callbacks=callbacks,
-		regularization=regularization,
+		# regularization=regularization,
 		optimizer=get_optimizer(params.get("optimizer", "adam"))(
 			network.parameters(), lr=params.get("learning_rate", 2e-4), **params.get("optimizer_params", {})
 		),
