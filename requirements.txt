@@ -13,4 +13,4 @@ six>=1.16.0
 scikit-learn>=1.1.2
 h5py>=3.5.0
 
-git+https://github.com/JeremieGince/PythonBasicTools
+pythonbasictools
