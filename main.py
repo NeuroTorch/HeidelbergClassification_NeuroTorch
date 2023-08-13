@@ -25,7 +25,7 @@ if __name__ == '__main__':
         batch_size=256,
         verbose=True,
         show_training=False,
-        force_overwrite=False,
+        force_overwrite=True,
         data_folder="data/tr_test",
         pin_memory=True,
     )
