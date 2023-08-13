@@ -146,30 +146,49 @@ def train_with_params(
         name=f"heidelberg_network_{checkpoints_name}",
         checkpoint_folder=checkpoint_folder,
         foresight_time_steps=params.get("foresight_time_steps", 0),
+        hh_memory_size=1,
     ).build()
     if verbose:
         logging.info(f"\nNetwork:\n{network}")
     checkpoint_manager = CheckpointManager(checkpoint_folder, metric="val_accuracy", minimise_metric=False)
     save_params(params, os.path.join(checkpoint_folder, "params.pkl"))
-    callbacks = [checkpoint_manager, ]
+    callbacks = [
+        checkpoint_manager,
+        nt.BPTT(
+            optimizer=get_optimizer(params.get("optimizer", "adam"))(
+                network.parameters(),
+                lr=params.get("learning_rate", 2e-4),
+                weight_decay=0.0,
+                **params.get("optimizer_params", {})
+            ),
+            criterion=torch.nn.NLLLoss(),
+        ),
+    ]
     if show_training:
         callbacks.append(TrainingHistoryVisualizationCallback("./temp/"))
     regularization = RegularizationList([
-        L2(network.parameters()),
-        L1(network.parameters()),
+        L2(network.parameters(), Lambda=1e-5),
+        L1(network.parameters(), Lambda=1e-6),
     ])
-    trainer = ClassificationTrainer(
+    trainer = nt.Trainer(
         model=network,
+        predict_method=network.get_prediction_log_proba.__name__,
+        y_transform=nt.ToTensor(dtype=torch.long),
         callbacks=callbacks,
-        # regularization=regularization,
-        optimizer=get_optimizer(params.get("optimizer", "adam"))(
-            network.parameters(), lr=params.get("learning_rate", 2e-4), **params.get("optimizer_params", {})
-        ),
+        regularization=regularization,
+        # optimizer=get_optimizer(params.get("optimizer", "adam"))(
+        #     network.parameters(), lr=params.get("learning_rate", 2e-4), **params.get("optimizer_params", {})
+        # ),
         # regularization_optimizer=torch.optim.Adam(regularization.parameters(), lr=params.get("learning_rate", 2e-4)),
-        lr=params.get("learning_rate", 2e-4),
-        reg_lr=params.get("reg_lr", 2e-4),
+        # lr=params.get("learning_rate", 2e-4),
+        # reg_lr=params.get("reg_lr", 2e-4),
+        metrics=[ClassificationMetrics(network)],
         verbose=verbose,
     )
+    for callback in callbacks:
+        callback.start(trainer)
+    if verbose:
+        logging.info(f"\nTrainer:\n{trainer}")
     history = trainer.train(
         dataloaders["train"],
         dataloaders["val"],
